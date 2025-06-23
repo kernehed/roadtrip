@@ -146,13 +146,21 @@ async function nextStep() {
   }
 
   let newPos;
-  if (destinationCoords) {
-    const stepLat = (destinationCoords[0] - currentPos[0]) / 10;
-    const stepLon = (destinationCoords[1] - currentPos[1]) / 10;
-    newPos = [currentPos[0] + stepLat, currentPos[1] + stepLon];
-  } else {
-    newPos = randomMove(currentPos);
-  }
+let target;
+if (destinationCoords) {
+  // Hitta EN delsträcka mot destination via routing
+  const data = await getRoute(currentPos, destinationCoords);
+  const coords = data.features[0].geometry.coordinates.map(c => [c[1], c[0]]);
+  // Dela upp rutten i 10-delar, välj 1/10 in längs rutten
+  const idx = Math.min(Math.floor(coords.length / 10), coords.length - 1);
+  target = coords[idx];
+} else {
+  // slumpmässig, men via ORS
+  const approx = randomMove(currentPos);
+  const data = await getRoute(currentPos, approx);
+  target = data.features[0].geometry.coordinates.map(c => [c[1], c[0]]).pop();
+}
+newPos = target;
 
   const name = await getPlaceName(newPos[0], newPos[1]);
   log("Reser till " + name);
