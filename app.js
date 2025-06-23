@@ -158,7 +158,8 @@ async function nextStep() {
   const name = await getPlaceName(newPos[0], newPos[1]);
   log(
     `Reser till ${name}<br>
-     <a href="https://www.google.com/maps/search/?api=1&query=${newPos[0]},${newPos[1]}" target="_blank">📍 Google Maps</a> |
+     <a href="geo:${newPos[0]},${newPos[1]}" target="_blank">📍 Öppna i Kartor</a> |
+     <a href="https://www.google.com/maps/dir/?api=1&destination=${newPos[0]},${newPos[1]}" target="_blank">🗺️ Google Maps</a> |
      <a href="https://waze.com/ul?ll=${newPos[0]},${newPos[1]}&navigate=yes" target="_blank">🚗 Waze</a>`
   );
   addMarker(newPos, name);
