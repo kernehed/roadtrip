@@ -1,0 +1,37 @@
+<!DOCTYPE html>
+<html lang="sv">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Kerneheds Roadtrip 🚗</title>
+  <link rel="manifest" href="manifest.json">
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+  <style>
+    body { margin: 0; background: #121212; color: #fff; font-family: sans-serif; }
+    .controls { padding: 1em; background: #1e1e1e; display: flex; gap: 0.5em; flex-wrap: wrap; }
+    input, button { background: #333; color: #fff; border: none; padding: 0.5em; border-radius: 5px; }
+    #map { height: 80vh; }
+    #log { padding: 1em; font-size: 0.9em; max-height: 20vh; overflow-y: auto; }
+  </style>
+</head>
+<body>
+  <div class="controls">
+    <input type="text" id="destinationAddress" placeholder="Slutadress (valfritt)">
+    <button id="startBtn">Börja</button>
+    <button id="resetBtn">Börja om</button>
+    <button id="exportBtn">Exportera PDF</button>
+    <input type="file" id="imageUpload" accept="image/*" multiple />
+  </div>
+  <div id="map"></div>
+  <div id="log"></div>
+
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+  <script>
+    if ('serviceWorker' in navigator) {
+      navigator.serviceWorker.register('sw.js').then(() => console.log('Service worker registrerad!'));
+    }
+  </script>
+  <script src="app.js"></script>
+</body>
+</html>
