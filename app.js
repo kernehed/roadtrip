@@ -72,7 +72,8 @@ async function getRoute(start, end) {
 async function drawRoute(start, end) {
   try {
     const data = await getRoute(start, end);
-    L.geoJSON(data, { style: { color: 'cyan', weight: 5 }}).addTo(routeLayer);
+    const segment = L.geoJSON(data, { style: { color: 'cyan', weight: 5 }});
+    segment.addTo(routeLayer);
   } catch {
     log("Kunde inte hämta rutt, försök igen.");
   }
@@ -146,24 +147,20 @@ async function nextStep() {
   }
 
   let newPos;
-let target;
-if (destinationCoords) {
-  // Hitta EN delsträcka mot destination via routing
-  const data = await getRoute(currentPos, destinationCoords);
-  const coords = data.features[0].geometry.coordinates.map(c => [c[1], c[0]]);
-  // Dela upp rutten i 10-delar, välj 1/10 in längs rutten
-  const idx = Math.min(Math.floor(coords.length / 10), coords.length - 1);
-  target = coords[idx];
-} else {
-  // slumpmässig, men via ORS
-  const approx = randomMove(currentPos);
-  const data = await getRoute(currentPos, approx);
-  target = data.features[0].geometry.coordinates.map(c => [c[1], c[0]]).pop();
-}
-newPos = target;
+  if (destinationCoords) {
+    const stepLat = (destinationCoords[0] - currentPos[0]) / 10;
+    const stepLon = (destinationCoords[1] - currentPos[1]) / 10;
+    newPos = [currentPos[0] + stepLat, currentPos[1] + stepLon];
+  } else {
+    newPos = randomMove(currentPos);
+  }
 
   const name = await getPlaceName(newPos[0], newPos[1]);
-  log("Reser till " + name);
+  log(
+    `Reser till ${name}<br>
+     <a href="https://www.google.com/maps/search/?api=1&query=${newPos[0]},${newPos[1]}" target="_blank">📍 Google Maps</a> |
+     <a href="https://waze.com/ul?ll=${newPos[0]},${newPos[1]}&navigate=yes" target="_blank">🚗 Waze</a>`
+  );
   addMarker(newPos, name);
   await drawRoute(currentPos, newPos);
   routeLog.push({ coords: newPos, desc: name });
