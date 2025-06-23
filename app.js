@@ -72,10 +72,10 @@ async function getRoute(start, end) {
 async function drawRoute(start, end) {
   try {
     const data = await getRoute(start, end);
-    const segment = L.geoJSON(data, { style: { color: 'cyan', weight: 5 }});
-    segment.addTo(routeLayer);
+    const segment = L.geoJSON(data, { style: { color: 'cyan', weight: 5 } });
+    segment.addTo(routeLayer); // detta lägger till linjen i befintligt lager
   } catch {
-    log("Kunde inte hämta rutt, försök igen.");
+    log("⚠️ Kunde inte hämta rutt, försök igen.");
   }
 }
 
@@ -137,7 +137,7 @@ async function nextStep() {
     } catch {}
   }
 
-  if (destinationCoords && getDistance(currentPos, destinationCoords) < 0.5) {
+  if (destinationCoords && getDistance(currentPos, destinationCoords) < 1) {
     log("🎉 Du är framme!");
     addMarker(destinationCoords, "Slutmål");
     startBtn.textContent = "Börja";
@@ -148,20 +148,26 @@ async function nextStep() {
 
   let newPos;
   if (destinationCoords) {
-    const stepLat = (destinationCoords[0] - currentPos[0]) / 10;
-    const stepLon = (destinationCoords[1] - currentPos[1]) / 10;
-    newPos = [currentPos[0] + stepLat, currentPos[1] + stepLon];
+    // Hitta en rutt och välj ett steg fram längs den riktiga vägen
+    const data = await getRoute(currentPos, destinationCoords);
+    const coords = data.features[0].geometry.coordinates.map(c => [c[1], c[0]]);
+    const idx = Math.min(Math.floor(coords.length / 10), coords.length - 1);
+    newPos = coords[idx];
   } else {
-    newPos = randomMove(currentPos);
+    const approx = randomMove(currentPos);
+    const data = await getRoute(currentPos, approx);
+    const coords = data.features[0].geometry.coordinates.map(c => [c[1], c[0]]);
+    newPos = coords[coords.length - 1];
   }
 
   const name = await getPlaceName(newPos[0], newPos[1]);
+
   log(
     `Reser till ${name}<br>
-     <a href="geo:${newPos[0]},${newPos[1]}" target="_blank">📍 Öppna i Kartor</a> |
-     <a href="https://www.google.com/maps/dir/?api=1&destination=${newPos[0]},${newPos[1]}" target="_blank">🗺️ Google Maps</a> |
-     <a href="https://waze.com/ul?ll=${newPos[0]},${newPos[1]}&navigate=yes" target="_blank">🚗 Waze</a>`
+    <button onclick="window.open('https://www.google.com/maps/dir/?api=1&destination=${newPos[0]},${newPos[1]}', '_blank')">🗺️ Google Maps</button>
+    <button onclick="window.open('https://waze.com/ul?ll=${newPos[0]},${newPos[1]}&navigate=yes', '_blank')">🚗 Waze</button>`
   );
+
   addMarker(newPos, name);
   await drawRoute(currentPos, newPos);
   routeLog.push({ coords: newPos, desc: name });
