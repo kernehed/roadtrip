@@ -162,11 +162,12 @@ async function nextStep() {
 
   const name = await getPlaceName(newPos[0], newPos[1]);
 
-  log(
-    `Reser till ${name}<br>
-    <button onclick="window.open('https://www.google.com/maps/dir/?api=1&destination=${newPos[0]},${newPos[1]}', '_blank')">🗺️ Google Maps</button>
-    <button onclick="window.open('https://waze.com/ul?ll=${newPos[0]},${newPos[1]}&navigate=yes', '_blank')">🚗 Waze</button>`
-  );
+addMarker(newPos, name);
+document.getElementById('navLinks').innerHTML = `
+  <span style="display: inline-block; margin: 6px 0;">Navigera till ${name}:</span><br>
+  <button onclick="window.open('https://www.google.com/maps/dir/?api=1&destination=${newPos[0]},${newPos[1]}', '_blank')">🗺️ Google Maps</button>
+  <button onclick="window.open('https://waze.com/ul?ll=${newPos[0]},${newPos[1]}&navigate=yes', '_blank')">🚗 Waze</button>
+`;
 
   addMarker(newPos, name);
   await drawRoute(currentPos, newPos);
