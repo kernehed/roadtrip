@@ -90,7 +90,17 @@ async function getPlaceName(lat, lon) {
   try {
     const resp = await fetch(`https://nominatim.openstreetmap.org/reverse?format=jsonv2&lat=${lat}&lon=${lon}`);
     const data = await resp.json();
-    return data.address.town || data.address.village || data.address.city || data.address.hamlet || "Okänd plats";
+    const address = data.address;
+    return (
+      address.village ||
+      address.town ||
+      address.city ||
+      address.hamlet ||
+      address.county ||
+      address.state ||
+      address.country ||
+      "Okänd plats"
+    );
   } catch {
     return "Okänd plats";
   }
@@ -135,7 +145,15 @@ async function nextStep() {
     return;
   }
 
-  const newPos = randomMove(currentPos);
+  let newPos;
+  if (destinationCoords) {
+    const stepLat = (destinationCoords[0] - currentPos[0]) / 10;
+    const stepLon = (destinationCoords[1] - currentPos[1]) / 10;
+    newPos = [currentPos[0] + stepLat, currentPos[1] + stepLon];
+  } else {
+    newPos = randomMove(currentPos);
+  }
+
   const name = await getPlaceName(newPos[0], newPos[1]);
   log("Reser till " + name);
   addMarker(newPos, name);
