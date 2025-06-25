@@ -3,74 +3,86 @@
 <html lang="sv">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Kerneheds Roadtrip 🚗</title>
-  <link rel="manifest" href="manifest.json">
+  <link rel="manifest" href="manifest.json" />
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
   <style>
     body {
       margin: 0;
+      font-family: sans-serif;
       background-color: #121212;
-      color: #fff;
-      font-family: 'Segoe UI', sans-serif;
+      color: white;
       display: flex;
       flex-direction: column;
       height: 100vh;
     }
     .controls {
+      background: #1f1f1f;
+      padding: 10px;
       display: flex;
       flex-wrap: wrap;
-      justify-content: space-around;
-      align-items: center;
-      padding: 10px;
-      background-color: #1f1f1f;
       gap: 8px;
+      justify-content: center;
+      align-items: center;
     }
     input, button {
-      padding: 8px 12px;
+      padding: 8px;
       border-radius: 6px;
       border: none;
-      background-color: #2a2a2a;
-      color: #fff;
       font-size: 14px;
-      flex: 1 0 40%;
-    }
-    input[type="file"] {
-      flex: 1 0 100%;
     }
     button {
+      background-color: #2196f3;
+      color: white;
       cursor: pointer;
-      background-color: #1976d2;
+    }
+    input[type="text"] {
+      flex: 1 0 100%;
     }
     #map {
       flex: 1;
       width: 100%;
     }
     #log {
-      max-height: 25vh;
-      overflow-y: auto;
+      background: #1a1a1a;
       padding: 10px;
+      max-height: 20vh;
+      overflow-y: auto;
       font-size: 13px;
-      background-color: #1a1a1a;
     }
     #log p {
-      margin: 0 0 6px;
+      margin: 0 0 5px;
     }
-    a {
-      color: #90caf9;
-      text-decoration: none;
+    #navLinks button {
+      margin: 5px;
+    }
+    #challengeContainer {
+      text-align: center;
+      margin-top: 10px;
+    }
+    #photoPreview img {
+      margin-top: 10px;
+      max-width: 90%;
+      border-radius: 8px;
     }
   </style>
 </head>
 <body>
   <div class="controls">
-    <input type="text" id="destinationAddress" placeholder="Slutadress (valfritt)">
+    <input type="text" id="destinationAddress" placeholder="Valfri slutadress" />
     <button id="startBtn">Börja</button>
     <button id="resetBtn">Börja om</button>
     <button id="exportBtn">Exportera PDF</button>
-    <input type="file" id="imageUpload" accept="image/*" multiple />
     <div id="navLinks" style="width: 100%; text-align: center;"></div>
+    <div id="challengeContainer">
+      <div id="challengeText"></div>
+      <input type="file" id="challengePhoto" accept="image/*" style="display:none;" />
+      <button id="uploadPhotoBtn">Ladda upp bild</button>
+      <div id="photoPreview"></div>
+    </div>
   </div>
+
   <div id="map"></div>
   <div id="log"></div>
 
@@ -78,7 +90,7 @@
   <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
   <script>
     if ('serviceWorker' in navigator) {
-      navigator.serviceWorker.register('sw.js').then(() => console.log('Service Worker registrerad!'));
+      navigator.serviceWorker.register('sw.js');
     }
   </script>
   <script src="app.js"></script>

@@ -1,140 +1,108 @@
 
-const ORS_API_KEY = '5b3ce3597851110001cf624836bf313777364123b8266f2b3c09e17e';
-
-let map, routeLayer;
+// === Konfiguration och startvärden ===
 let currentPos = null;
 let destinationCoords = null;
-let routeLog = JSON.parse(localStorage.getItem('routeLog') || '[]');
-let images = [];
+let routeLog = [];
+const routeLayer = L.featureGroup().addTo(map);
+const startBtn = document.getElementById("startBtn");
+const destInput = document.getElementById("destinationAddress");
 
-const logDiv = document.getElementById('log');
-const startBtn = document.getElementById('startBtn');
-const resetBtn = document.getElementById('resetBtn');
-const exportBtn = document.getElementById('exportBtn');
-const destInput = document.getElementById('destinationAddress');
-const imageUpload = document.getElementById('imageUpload');
+// === Kartinställningar ===
+const map = L.map('map').setView([60.6745, 17.1413], 10);
+L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+  attribution: '&copy; OpenStreetMap'
+}).addTo(map);
+
+// === Hjälpfunktioner ===
+function getDistance(a, b) {
+  const R = 6371;
+  const dLat = (b[0]-a[0]) * Math.PI/180;
+  const dLon = (b[1]-a[1]) * Math.PI/180;
+  const lat1 = a[0]*Math.PI/180;
+  const lat2 = b[0]*Math.PI/180;
+  const x = Math.sin(dLat/2)**2 + Math.cos(lat1)*Math.cos(lat2)*Math.sin(dLon/2)**2;
+  return R * 2 * Math.atan2(Math.sqrt(x), Math.sqrt(1-x));
+}
+
+function randomMove([lat, lon]) {
+  const dirs = [[0.1,0],[0,-0.1],[-0.1,0],[0,0.1]];
+  const [dLat, dLon] = dirs[Math.floor(Math.random() * dirs.length)];
+  return [lat + dLat * (Math.random() * 10), lon + dLon * (Math.random() * 10)];
+}
+
+async function getRoute(start, end) {
+  const url = `https://api.openrouteservice.org/v2/directions/driving-car/geojson`;
+  const body = {
+    coordinates: [[start[1], start[0]], [end[1], end[0]]]
+  };
+  const res = await fetch(url, {
+    method: "POST",
+    headers: {
+      "Authorization": "5b3ce3597851110001cf624836bf313777364123b8266f2b3c09e17e",
+      "Content-Type": "application/json"
+    },
+    body: JSON.stringify(body)
+  });
+  return res.json();
+}
+
+async function getPlaceName(lat, lon) {
+  const res = await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lon}`);
+  const data = await res.json();
+  return data.address?.village || data.address?.town || data.address?.city || "Okänd plats";
+}
+
+function addMarker(coords, label) {
+  L.marker(coords).addTo(map).bindPopup(label).openPopup();
+}
 
 function log(msg) {
-  const p = document.createElement('p');
-  p.textContent = msg;
-  logDiv.appendChild(p);
+  const logDiv = document.getElementById("log");
+  logDiv.innerHTML += `<p>${msg}</p>`;
   logDiv.scrollTop = logDiv.scrollHeight;
 }
 
 function saveLog() {
-  localStorage.setItem('routeLog', JSON.stringify(routeLog));
+  localStorage.setItem("roadtripLog", JSON.stringify(routeLog));
 }
 
-function clearLog() {
-  routeLog = [];
-  saveLog();
-  logDiv.innerHTML = '';
-}
-
-function initMap() {
-  map = L.map('map').setView([60.674, 17.141], 10);
-  L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
-    attribution: '&copy; OpenStreetMap & CartoDB',
-    subdomains: 'abcd',
-    maxZoom: 19
-  }).addTo(map);
-  routeLayer = L.layerGroup().addTo(map);
-
-  if (routeLog.length > 0) {
-    for (let i = 0; i < routeLog.length; i++) {
-      addMarker(routeLog[i].coords, routeLog[i].desc);
-      if (i > 0) drawRoute(routeLog[i-1].coords, routeLog[i].coords);
-    }
-    currentPos = routeLog[routeLog.length -1].coords;
+function loadLog() {
+  const saved = JSON.parse(localStorage.getItem("roadtripLog") || "[]");
+  routeLog = saved;
+  for (const r of saved) {
+    addMarker(r.coords, r.desc || "Stopp");
   }
-}
-
-function addMarker(latlng, text) {
-  const mk = L.marker(latlng).addTo(routeLayer);
-  mk.bindPopup(text).openPopup();
-}
-
-async function getRoute(start, end) {
-  const url = 'https://api.openrouteservice.org/v2/directions/driving-car/geojson';
-  const body = { coordinates: [ [start[1], start[0]], [end[1], end[0]] ] };
-  const response = await fetch(url, {
-    method: 'POST',
-    headers: {
-      'Authorization': ORS_API_KEY,
-      'Content-Type': 'application/json'
-    },
-    body: JSON.stringify(body)
-  });
-  if (!response.ok) throw new Error("ORS API fel");
-  return await response.json();
 }
 
 async function drawRoute(start, end) {
   try {
     const data = await getRoute(start, end);
     const segment = L.geoJSON(data, { style: { color: 'cyan', weight: 5 } });
-    segment.addTo(routeLayer); // detta lägger till linjen i befintligt lager
+    segment.addTo(routeLayer);
   } catch {
     log("⚠️ Kunde inte hämta rutt, försök igen.");
   }
 }
 
-function randomMove([lat, lon]) {
-  const mil = Math.floor(Math.random() * 10) + 1;
-  const dir = Math.random() * 2 * Math.PI;
-  const deltaLat = Math.cos(dir) * mil * 0.09;
-  const deltaLon = Math.sin(dir) * mil * 0.09 / Math.cos(lat * Math.PI / 180);
-  return [lat + deltaLat, lon + deltaLon];
-}
-
-async function getPlaceName(lat, lon) {
-  try {
-    const resp = await fetch(`https://nominatim.openstreetmap.org/reverse?format=jsonv2&lat=${lat}&lon=${lon}`);
-    const data = await resp.json();
-    const address = data.address;
-    return (
-      address.village ||
-      address.town ||
-      address.city ||
-      address.hamlet ||
-      address.county ||
-      address.state ||
-      address.country ||
-      "Okänd plats"
-    );
-  } catch {
-    return "Okänd plats";
-  }
-}
-
-startBtn.addEventListener('click', async () => {
-  startBtn.disabled = true;
-  if (!currentPos) {
-    try {
-      currentPos = await new Promise((resolve, reject) => {
-        navigator.geolocation.getCurrentPosition(
-          pos => resolve([pos.coords.latitude, pos.coords.longitude]),
-          () => reject(),
-          { enableHighAccuracy: true, timeout: 10000 }
-        );
-      });
-      log("Start från GPS: " + currentPos.map(x => x.toFixed(4)).join(", "));
-    } catch {
-      currentPos = [60.674, 17.141];
-      log("Start från Gävle (ingen GPS).");
-    }
-  }
-  await nextStep();
-  startBtn.disabled = false;
-});
-
+// === Huvudfunktion: nästa steg ===
 async function nextStep() {
+  if (!currentPos) {
+    if (navigator.geolocation) {
+      navigator.geolocation.getCurrentPosition(pos => {
+        currentPos = [pos.coords.latitude, pos.coords.longitude];
+        map.setView(currentPos, 12);
+        nextStep();
+      });
+    } else {
+      currentPos = [60.6745, 17.1413]; // fallback: Gävle
+    }
+    return;
+  }
+
   if (destInput.value.trim() && !destinationCoords) {
-    try {
-      const res = await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(destInput.value.trim())}`);
-      const data = await res.json();
-      if (data.length) destinationCoords = [parseFloat(data[0].lat), parseFloat(data[0].lon)];
-    } catch {}
+    const res = await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(destInput.value.trim())}`);
+    const data = await res.json();
+    if (data.length) destinationCoords = [parseFloat(data[0].lat), parseFloat(data[0].lon)];
   }
 
   if (destinationCoords && getDistance(currentPos, destinationCoords) < 1) {
@@ -148,7 +116,6 @@ async function nextStep() {
 
   let newPos;
   if (destinationCoords) {
-    // Hitta en rutt och välj ett steg fram längs den riktiga vägen
     const data = await getRoute(currentPos, destinationCoords);
     const coords = data.features[0].geometry.coordinates.map(c => [c[1], c[0]]);
     const idx = Math.min(Math.floor(coords.length / 10), coords.length - 1);
@@ -162,65 +129,86 @@ async function nextStep() {
 
   const name = await getPlaceName(newPos[0], newPos[1]);
 
-addMarker(newPos, name);
-document.getElementById('navLinks').innerHTML = `
-  <span style="display: inline-block; margin: 6px 0;">Navigera till ${name}:</span><br>
-  <button onclick="window.open('https://www.google.com/maps/dir/?api=1&destination=${newPos[0]},${newPos[1]}', '_blank')">🗺️ Google Maps</button>
-  <button onclick="window.open('https://waze.com/ul?ll=${newPos[0]},${newPos[1]}&navigate=yes', '_blank')">🚗 Waze</button>
-`;
+  document.getElementById('navLinks').innerHTML = `
+    <div style="margin-top: 5px">
+    Navigera till ${name}:<br>
+    <button onclick="window.open('https://www.google.com/maps/dir/?api=1&destination=${newPos[0]},${newPos[1]}')">🗺️ Google Maps</button>
+    <button onclick="window.open('https://waze.com/ul?ll=${newPos[0]},${newPos[1]}&navigate=yes')">🚗 Waze</button>
+    </div>`;
 
+  const challenge = getRandomChallenge();
+  document.getElementById('challengeText').textContent = "Utmaning: " + challenge;
+  document.getElementById('photoPreview').innerHTML = "";
+
+  log("📍 " + name);
   addMarker(newPos, name);
   await drawRoute(currentPos, newPos);
-  routeLog.push({ coords: newPos, desc: name });
+  routeLog.push({ coords: newPos, desc: name, challenge });
   saveLog();
   currentPos = newPos;
   startBtn.textContent = "Nästa";
 }
 
-function getDistance([lat1, lon1], [lat2, lon2]) {
-  const R = 6371, dLat = (lat2-lat1)*Math.PI/180, dLon = (lon2-lon1)*Math.PI/180;
-  const a = Math.sin(dLat/2)**2 + Math.cos(lat1*Math.PI/180)*Math.cos(lat2*Math.PI/180)*Math.sin(dLon/2)**2;
-  return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+// === Utmaningar ===
+const challenges = [
+  "Knäpp kort på en röd dörr", "Fotografera en fågel", "Hitta ett speciellt gatunamn",
+  "Ta en selfie vid en staty", "Hitta en udda skylt", "Fotografera en cykel",
+  "Hitta något blått", "Knäpp kort på en hund", "Ta en bild på en blomma", "Hitta en lekplats"
+];
+function getRandomChallenge() {
+  const i = Math.floor(Math.random() * challenges.length);
+  return challenges[i];
 }
 
-resetBtn.addEventListener('click', () => {
-  routeLayer.clearLayers();
-  clearLog();
-  currentPos = null;
-  destinationCoords = null;
-  startBtn.textContent = "Börja";
-  images = [];
-  imageUpload.value = '';
-});
+// === Foto / utmaning ===
+const photoInput = document.getElementById('challengePhoto');
+const photoPreview = document.getElementById('photoPreview');
+const uploadBtn = document.getElementById('uploadPhotoBtn');
 
-imageUpload.addEventListener('change', () => {
-  [...imageUpload.files].forEach(file => {
-    const reader = new FileReader();
-    reader.onload = e => { images.push(e.target.result); log("Bild uppladdad."); };
-    reader.readAsDataURL(file);
-  });
-});
+uploadBtn.onclick = () => photoInput.click();
 
-exportBtn.addEventListener('click', () => {
-  if (!routeLog.length) return alert("Ingen reselog ännu.");
+photoInput.onchange = (e) => {
+  const file = e.target.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = () => {
+    photoPreview.innerHTML = `<img src="${reader.result}" style="max-width:100%; max-height:200px;" />`;
+    if (routeLog.length > 0) {
+      routeLog[routeLog.length - 1].photo = reader.result;
+      saveLog();
+    }
+  };
+  reader.readAsDataURL(file);
+};
+
+// === Export PDF ===
+document.getElementById("exportBtn").onclick = async () => {
   const { jsPDF } = window.jspdf;
   const pdf = new jsPDF();
-  pdf.setFontSize(18);
-  pdf.text("Kerneheds Roadtrip 🚗", 10, 20);
-  pdf.setFontSize(12);
-  let y = 30;
-  routeLog.forEach((r, i) => {
+  let y = 20;
+  pdf.text("Kerneheds Roadtrip", 10, y);
+  y += 10;
+  for (let i = 0; i < routeLog.length; i++) {
+    const r = routeLog[i];
     pdf.text(`${i+1}. ${r.desc} (${r.coords[0].toFixed(3)}, ${r.coords[1].toFixed(3)})`, 10, y);
-    y += 10; if (y > 280) { pdf.addPage(); y = 20; }
-  });
-  if (images.length) {
-    pdf.addPage(); y = 20;
-    images.forEach(img => {
-      pdf.addImage(img, "JPEG", 10, y, 60, 60);
-      y += 65; if (y > 250) { pdf.addPage(); y = 20; }
-    });
+    y += 10;
+    if (r.challenge) {
+      pdf.text("Utmaning: " + r.challenge, 10, y);
+      y += 10;
+    }
+    if (r.photo) {
+      pdf.addImage(r.photo, "JPEG", 10, y, 60, 60);
+      y += 65;
+      if (y > 250) { pdf.addPage(); y = 20; }
+    }
   }
-  pdf.save("roadtrip.pdf");
-});
+  pdf.save("kerneheds-roadtrip.pdf");
+};
 
-initMap();
+// === Knapphantering ===
+startBtn.onclick = nextStep;
+document.getElementById("resetBtn").onclick = () => {
+  localStorage.removeItem("roadtripLog");
+  location.reload();
+};
+loadLog();
