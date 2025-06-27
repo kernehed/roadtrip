@@ -1,49 +1,52 @@
-
-// === Konfiguration och startvärden ===
 let currentPos = null;
 let destinationCoords = null;
 let routeLog = [];
+const map = L.map('map').setView([60.6745, 17.1413], 10);
 const routeLayer = L.featureGroup().addTo(map);
 const startBtn = document.getElementById("startBtn");
 const destInput = document.getElementById("destinationAddress");
 
-// === Kartinställningar ===
-const map = L.map('map').setView([60.6745, 17.1413], 10);
 L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
   attribution: '&copy; OpenStreetMap'
 }).addTo(map);
 
-// === Hjälpfunktioner ===
 function getDistance(a, b) {
   const R = 6371;
-  const dLat = (b[0]-a[0]) * Math.PI/180;
-  const dLon = (b[1]-a[1]) * Math.PI/180;
-  const lat1 = a[0]*Math.PI/180;
-  const lat2 = b[0]*Math.PI/180;
-  const x = Math.sin(dLat/2)**2 + Math.cos(lat1)*Math.cos(lat2)*Math.sin(dLon/2)**2;
-  return R * 2 * Math.atan2(Math.sqrt(x), Math.sqrt(1-x));
+  const dLat = (b[0] - a[0]) * Math.PI / 180;
+  const dLon = (b[1] - a[1]) * Math.PI / 180;
+  const lat1 = a[0] * Math.PI / 180;
+  const lat2 = b[0] * Math.PI / 180;
+  const x = Math.sin(dLat / 2) ** 2 + Math.cos(lat1) * Math.cos(lat2) * Math.sin(dLon / 2) ** 2;
+  return R * 2 * Math.atan2(Math.sqrt(x), Math.sqrt(1 - x));
 }
 
 function randomMove([lat, lon]) {
-  const dirs = [[0.1,0],[0,-0.1],[-0.1,0],[0,0.1]];
+  const dirs = [[0.1, 0], [0, -0.1], [-0.1, 0], [0, 0.1]];
   const [dLat, dLon] = dirs[Math.floor(Math.random() * dirs.length)];
   return [lat + dLat * (Math.random() * 10), lon + dLon * (Math.random() * 10)];
 }
 
 async function getRoute(start, end) {
-  const url = `https://api.openrouteservice.org/v2/directions/driving-car/geojson`;
-  const body = {
-    coordinates: [[start[1], start[0]], [end[1], end[0]]]
-  };
+  const url = "https://api.openrouteservice.org/v2/directions/driving-car/geojson";
   const res = await fetch(url, {
     method: "POST",
     headers: {
       "Authorization": "5b3ce3597851110001cf624836bf313777364123b8266f2b3c09e17e",
       "Content-Type": "application/json"
     },
-    body: JSON.stringify(body)
+    body: JSON.stringify({ coordinates: [[start[1], start[0]], [end[1], end[0]]] })
   });
   return res.json();
+}
+
+async function drawRoute(start, end) {
+  try {
+    const data = await getRoute(start, end);
+    const segment = L.geoJSON(data, { style: { color: 'cyan', weight: 5 } });
+    segment.addTo(routeLayer);
+  } catch {
+    log("⚠️ Kunde inte hämta rutt, försök igen.");
+  }
 }
 
 async function getPlaceName(lat, lon) {
@@ -74,17 +77,6 @@ function loadLog() {
   }
 }
 
-async function drawRoute(start, end) {
-  try {
-    const data = await getRoute(start, end);
-    const segment = L.geoJSON(data, { style: { color: 'cyan', weight: 5 } });
-    segment.addTo(routeLayer);
-  } catch {
-    log("⚠️ Kunde inte hämta rutt, försök igen.");
-  }
-}
-
-// === Huvudfunktion: nästa steg ===
 async function nextStep() {
   if (!currentPos) {
     if (navigator.geolocation) {
@@ -128,6 +120,7 @@ async function nextStep() {
   }
 
   const name = await getPlaceName(newPos[0], newPos[1]);
+  const challenge = getRandomChallenge();
 
   document.getElementById('navLinks').innerHTML = `
     <div style="margin-top: 5px">
@@ -136,7 +129,6 @@ async function nextStep() {
     <button onclick="window.open('https://waze.com/ul?ll=${newPos[0]},${newPos[1]}&navigate=yes')">🚗 Waze</button>
     </div>`;
 
-  const challenge = getRandomChallenge();
   document.getElementById('challengeText').textContent = "Utmaning: " + challenge;
   document.getElementById('photoPreview').innerHTML = "";
 
@@ -149,24 +141,11 @@ async function nextStep() {
   startBtn.textContent = "Nästa";
 }
 
-// === Utmaningar ===
-const challenges = [
-  "Knäpp kort på en röd dörr", "Fotografera en fågel", "Hitta ett speciellt gatunamn",
-  "Ta en selfie vid en staty", "Hitta en udda skylt", "Fotografera en cykel",
-  "Hitta något blått", "Knäpp kort på en hund", "Ta en bild på en blomma", "Hitta en lekplats"
-];
-function getRandomChallenge() {
-  const i = Math.floor(Math.random() * challenges.length);
-  return challenges[i];
-}
-
-// === Foto / utmaning ===
+// 📸 Foto + utmaning
 const photoInput = document.getElementById('challengePhoto');
 const photoPreview = document.getElementById('photoPreview');
 const uploadBtn = document.getElementById('uploadPhotoBtn');
-
 uploadBtn.onclick = () => photoInput.click();
-
 photoInput.onchange = (e) => {
   const file = e.target.files[0];
   if (!file) return;
@@ -181,8 +160,17 @@ photoInput.onchange = (e) => {
   reader.readAsDataURL(file);
 };
 
-// === Export PDF ===
-document.getElementById("exportBtn").onclick = async () => {
+const challenges = [
+  "Knäpp kort på en röd dörr", "Fotografera en fågel", "Hitta ett speciellt gatunamn",
+  "Ta en selfie vid en staty", "Hitta en udda skylt", "Fotografera en cykel",
+  "Hitta något blått", "Knäpp kort på en hund", "Ta en bild på en blomma", "Hitta en lekplats"
+];
+function getRandomChallenge() {
+  return challenges[Math.floor(Math.random() * challenges.length)];
+}
+
+// Exportera PDF
+document.getElementById("exportBtn").onclick = () => {
   const { jsPDF } = window.jspdf;
   const pdf = new jsPDF();
   let y = 20;
@@ -190,7 +178,7 @@ document.getElementById("exportBtn").onclick = async () => {
   y += 10;
   for (let i = 0; i < routeLog.length; i++) {
     const r = routeLog[i];
-    pdf.text(`${i+1}. ${r.desc} (${r.coords[0].toFixed(3)}, ${r.coords[1].toFixed(3)})`, 10, y);
+    pdf.text(`${i + 1}. ${r.desc} (${r.coords[0].toFixed(3)}, ${r.coords[1].toFixed(3)})`, 10, y);
     y += 10;
     if (r.challenge) {
       pdf.text("Utmaning: " + r.challenge, 10, y);
@@ -205,10 +193,11 @@ document.getElementById("exportBtn").onclick = async () => {
   pdf.save("kerneheds-roadtrip.pdf");
 };
 
-// === Knapphantering ===
+// Andra knappar
 startBtn.onclick = nextStep;
 document.getElementById("resetBtn").onclick = () => {
   localStorage.removeItem("roadtripLog");
   location.reload();
 };
+
 loadLog();
